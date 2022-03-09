@@ -1,0 +1,53 @@
+#
+# Release
+# This pipeline builds a version of the app in a production configuration to be released to the
+# Store and the Windows image. This pipeline relies on Microsoft-internal resources to run.
+#
+
+trigger: none
+pr: none
+
+variables:
+  versionMajor: 11
+  versionMinor: 2202
+  versionBuild: $[counter(format('{0}.{1}.*', variables['versionMajor'], variables['versionMinor']), 0)]
+  versionPatch: 0
+
+name: '$(versionMajor).$(versionMinor).$(versionBuild).$(versionPatch)'
+
+jobs:
+- template: ./templates/build-single-architecture.yaml
+  parameters:
+    platform: x64
+    isReleaseBuild: true
+    useReleaseAppxmanifest: true
+
+- template: ./templates/build-single-architecture.yaml
+  parameters:
+    platform: x86
+    isReleaseBuild: true
+    useReleaseAppxmanifest: true
+    condition: not(eq(variables['Build.Reason'], 'PullRequest'))
+
+- template: ./templates/build-single-architecture.yaml
+  parameters:
+    platform: ARM
+    isReleaseBuild: true
+    useReleaseAppxmanifest: true
+    condition: not(eq(variables['Build.Reason'], 'PullRequest'))
+
+- template: ./templates/run-unit-tests.yaml
+  parameters:
+    platform: x64
+
+- template: ./templates/run-unit-tests.yaml
+  parameters:
+    platform: x86
+
+- template: ./templates/package-msixbundle.yaml
+  parameters:
+    signBundle: true
+    createStoreBrokerPackages: true
+
+- template: ./templates/release-store.yaml
+- template: ./templates/release-vpack.yaml
